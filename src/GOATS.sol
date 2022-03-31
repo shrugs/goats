@@ -5,14 +5,20 @@ import {ERC721} from "solmate/tokens/ERC721.sol";
 import {IERC2981} from "openzeppelin-contracts/contracts/interfaces/IERC2981.sol";
 
 contract GOATS is ERC721 {
-    // last goat id is 10003 but +1 for not-zero-indexed and also +1 for more efficient comparison, so 10005
-    uint256 private constant threshold = 10005;
+    // last goat id is 10003 but +1 for not-zero-indexed
+    uint256 private constant threshold = 10004;
 
     ERC721 public immutable trolls;
     address public immutable beneficiary;
     uint256 public immutable cost; // in wei
 
     uint256 private nextTokenId = 1;
+
+    event GoatEaten(uint256 id);
+
+    error TooManyGoats();
+    error TheGoatsDemandCoin();
+    error TooManyGoatsTooManyGoats();
 
     constructor(
         address _beneficiary,
@@ -25,15 +31,16 @@ contract GOATS is ERC721 {
     }
 
     function herd(uint256 goats) external payable {
-        require(goats < 21, "E1");
-        require(msg.value == cost * goats, "E2");
-        require(nextTokenId + goats < threshold, "E3");
+        if (goats > 20) revert TooManyGoats();
+        if (msg.value != cost * goats) revert TheGoatsDemandCoin();
+        if (nextTokenId + goats > threshold) revert TooManyGoatsTooManyGoats();
 
         for (uint256 i = 0; i < goats; i++) {
             // if you own trolls there's a chance one of your trolls eats your goat
             uint256 numTrolls = trolls.balanceOf(msg.sender);
             if (numTrolls > 0 && i > 0 && ate(numTrolls)) {
                 _safeMint(address(trolls), nextTokenId);
+                emit GoatEaten(nextTokenId);
             } else {
                 _safeMint(msg.sender, nextTokenId);
             }
